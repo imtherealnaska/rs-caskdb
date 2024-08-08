@@ -98,7 +98,7 @@ impl DiskStore {
 
     pub fn set(mut self, key: String, value: String) -> io::Result<()> {
         let now = Utc::now();
-        let ts = now.timestamp();
+        let ts = now.timestamp().try_into().unwrap();
         let (size, data) = encode_kv(ts, key.clone(), value);
         self.write(&data)?;
         self.key_dir

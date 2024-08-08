@@ -1,14 +1,14 @@
 pub const DEFAULT_WHENCE: usize = 0;
-pub(crate) const HEADER_SIZE: usize = 16;
+pub(crate) const HEADER_SIZE: usize = 12;
 
 pub struct KeyEntry {
-    pub(crate) timestamp: i64,
+    pub(crate) timestamp: u32,
     pub(crate) pos: u64,
     pub(crate) total_size: u32,
 }
 impl KeyEntry {
     /// Creates a new KeyEntry.
-    pub fn new(timestamp: i64, pos: u64, total_size: u32) -> Self {
+    pub fn new(timestamp: u32, pos: u64, total_size: u32) -> Self {
         Self {
             timestamp,
             pos,
@@ -17,32 +17,33 @@ impl KeyEntry {
     }
 }
 
-pub(crate) fn decode_header(header: &[u8]) -> (i64, u32, u32) {
-    let timestamp = i64::from_le_bytes(header[0..8].try_into().unwrap());
-    let key_size = u32::from_le_bytes(header[8..12].try_into().unwrap());
-    let value_size = u32::from_le_bytes(header[12..16].try_into().unwrap());
+pub(crate) fn decode_header(header: &[u8]) -> (u32, u32, u32) {
+    let timestamp = u32::from_le_bytes(header[0..4].try_into().unwrap());
+    let key_size = u32::from_le_bytes(header[4..8].try_into().unwrap());
+    let value_size = u32::from_le_bytes(header[8..12].try_into().unwrap());
     (timestamp, key_size, value_size)
 }
 
-pub fn encode_header(timestamp: i64, key_size: u32, value_size: u32) -> [u8; 16] {
-    let mut header = [0u8; 16];
-    header[0..8].copy_from_slice(&timestamp.to_le_bytes());
-    header[8..12].copy_from_slice(&key_size.to_le_bytes());
-    header[12..16].copy_from_slice(&value_size.to_le_bytes());
+pub fn encode_header(timestamp: u32, key_size: u32, value_size: u32) -> [u8; 12] {
+    let mut header = [0u8; 12];
+    header[0..4].copy_from_slice(&timestamp.to_le_bytes());
+    header[4..8].copy_from_slice(&key_size.to_le_bytes());
+    header[8..12].copy_from_slice(&value_size.to_le_bytes());
     header
 }
 
-pub fn encode_kv(timestamp: i64, key: String, value: String) -> (usize, Vec<u8>) {
+pub fn encode_kv(timestamp: u32, key: String, value: String) -> (usize, Vec<u8>) {
     let key_bytes = key.as_bytes();
     let value_bytes = value.as_bytes();
     let header = encode_header(timestamp, key_bytes.len() as u32, value_bytes.len() as u32);
     let mut data = Vec::with_capacity(header.len() + key_bytes.len() + value_bytes.len());
+    data.extend_from_slice(&header);
     data.extend_from_slice(key_bytes);
     data.extend_from_slice(value_bytes);
     (data.len(), data)
 }
 
-pub fn decode_kv(data: &[u8]) -> (i64, String, String) {
+pub fn decode_kv(data: &[u8]) -> (u32, String, String) {
     let (timestamp, key_size, value_size) = decode_header(&data[0..HEADER_SIZE]);
     let key_start = HEADER_SIZE;
     let key_end = key_start + key_size as usize;
